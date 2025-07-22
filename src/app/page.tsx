@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFormState, useFormStatus } from 'react-dom';
@@ -9,13 +10,15 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect, useRef } from 'react';
-import { Loader2, Film, Link as LinkIcon } from 'lucide-react';
+import { Loader2, Film, Link as LinkIcon, FileText } from 'lucide-react';
 import Link from 'next/link';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const initialState = {
   movies: [],
   message: null,
   error: null,
+  logs: [],
 };
 
 function SubmitButton() {
@@ -38,6 +41,7 @@ export default function Home() {
   const [state, formAction] = useFormState(convertWatchlist, initialState);
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
+  const logsContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (state.error) {
@@ -47,14 +51,19 @@ export default function Home() {
         description: state.error,
       });
     }
-    // Only show success toast if there are movies, to avoid showing it on initial load.
     if (state.message && state.movies.length > 0) {
       toast({
         title: 'Success',
         description: state.message,
       });
     }
-  }, [state, toast]);
+  }, [state.error, state.message, state.movies.length, toast]);
+
+  useEffect(() => {
+    if (logsContainerRef.current) {
+      logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
+    }
+  }, [state.logs]);
 
   return (
     <main className="flex min-h-screen flex-col items-center p-4 sm:p-8 md:p-12 bg-background">
@@ -68,79 +77,108 @@ export default function Home() {
           </p>
         </header>
         
-        <Card className="w-full max-w-md mx-auto shadow-lg">
-          <CardHeader>
-            <CardTitle>Enter Username</CardTitle>
-            <CardDescription>
-              Your Letterboxd profile and watchlist must be public.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form ref={formRef} action={formAction} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="username">Letterboxd Username</Label>
-                <Input
-                  id="username"
-                  name="username"
-                  placeholder="e.g., davezuck"
-                  required
-                />
-              </div>
-              <SubmitButton />
-            </form>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1">
+            <Card className="shadow-lg sticky top-8">
+              <CardHeader>
+                <CardTitle>Enter Username</CardTitle>
+                <CardDescription>
+                  Your Letterboxd profile and watchlist must be public.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form ref={formRef} action={formAction} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Letterboxd Username</Label>
+                    <Input
+                      id="username"
+                      name="username"
+                      placeholder="e.g., davezuck"
+                      required
+                    />
+                  </div>
+                  <SubmitButton />
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+          
+          <div className="lg:col-span-2 space-y-8">
+            {state.logs && state.logs.length > 0 && (
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <FileText className="mr-2 h-5 w-5" />
+                    Logs
+                  </CardTitle>
+                  <CardDescription>
+                    Real-time progress of the conversion process.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                   <ScrollArea className="h-48 w-full rounded-md border">
+                     <div ref={logsContainerRef} className="p-4 font-mono text-sm">
+                        {state.logs.map((log, index) => (
+                          <p key={index} className="whitespace-pre-wrap">{log}</p>
+                        ))}
+                     </div>
+                   </ScrollArea>
+                </CardContent>
+              </Card>
+            )}
 
-        {state.movies && state.movies.length > 0 && (
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle>Conversion Results</CardTitle>
-              <CardDescription>
-                Found {state.movies.length} {state.movies.length === 1 ? 'movie' : 'movies'}. Movies without a TMDB match may be incorrect or very obscure.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Title</TableHead>
-                      <TableHead className="text-center w-[100px]">Year</TableHead>
-                      <TableHead className="text-center w-[120px]">Letterboxd</TableHead>
-                      <TableHead className="text-center w-[120px]">TMDB</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {state.movies.map((movie, index) => (
-                      <TableRow key={`${movie.letterboxdUrl}-${index}`}>
-                        <TableCell className="font-medium">{movie.title}</TableCell>
-                        <TableCell className="text-center text-muted-foreground">{movie.year}</TableCell>
-                        <TableCell className="text-center">
-                          <Button asChild variant="ghost" size="icon">
-                            <Link href={movie.letterboxdUrl} target="_blank" rel="noopener noreferrer" aria-label={`View ${movie.title} on Letterboxd`}>
-                              <Film className="h-5 w-5 text-muted-foreground hover:text-foreground" />
-                            </Link>
-                          </Button>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {movie.tmdbId ? (
-                            <Button asChild variant="ghost" size="icon">
-                              <Link href={`https://www.themoviedb.org/movie/${movie.tmdbId}`} target="_blank" rel="noopener noreferrer" aria-label={`View ${movie.title} on TMDB`}>
-                                <LinkIcon className="h-5 w-5 text-muted-foreground hover:text-foreground" />
-                              </Link>
-                            </Button>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">None</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+            {state.movies && state.movies.length > 0 && (
+              <Card className="shadow-lg">
+                <CardHeader>
+                  <CardTitle>Conversion Results</CardTitle>
+                  <CardDescription>
+                    Found {state.movies.length} {state.movies.length === 1 ? 'movie' : 'movies'}. Movies without a TMDB match may be incorrect or very obscure.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Title</TableHead>
+                          <TableHead className="text-center w-[100px]">Year</TableHead>
+                          <TableHead className="text-center w-[120px]">Letterboxd</TableHead>
+                          <TableHead className="text-center w-[120px]">TMDB</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {state.movies.map((movie, index) => (
+                          <TableRow key={`${movie.letterboxdUrl}-${index}`}>
+                            <TableCell className="font-medium">{movie.title}</TableCell>
+                            <TableCell className="text-center text-muted-foreground">{movie.year}</TableCell>
+                            <TableCell className="text-center">
+                              <Button asChild variant="ghost" size="icon">
+                                <Link href={movie.letterboxdUrl} target="_blank" rel="noopener noreferrer" aria-label={`View ${movie.title} on Letterboxd`}>
+                                  <Film className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+                                </Link>
+                              </Button>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {movie.tmdbId ? (
+                                <Button asChild variant="ghost" size="icon">
+                                  <Link href={`https://www.themoviedb.org/movie/${movie.tmdbId}`} target="_blank" rel="noopener noreferrer" aria-label={`View ${movie.title} on TMDB`}>
+                                    <LinkIcon className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+                                  </Link>
+                                </Button>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">None</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
       </div>
     </main>
   );
