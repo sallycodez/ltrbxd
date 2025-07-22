@@ -104,17 +104,17 @@ export async function convertWatchlist(
           throw new Error(error);
       }
 
+      if (response.status === 404) {
+        if (page === 1) { 
+          const error = 'User not found or watchlist is private.';
+          log(`Error: ${error}`);
+          throw new Error(error);
+        }
+        log('No more pages found. Ending scrape.');
+        break; 
+      }
 
       if (!response.ok) {
-         if (response.status === 404) {
-           if (page === 1) { 
-             const error = 'User not found or watchlist is private.';
-             log(`Error: ${error}`);
-             throw new Error(error);
-           }
-          log('No more pages found. Ending scrape.');
-          break; 
-        }
         const error = `Failed to fetch Letterboxd watchlist. Status: ${response.status}`;
         log(`Error: ${error}`);
         throw new Error(error);
@@ -123,7 +123,7 @@ export async function convertWatchlist(
       const html = await response.text();
       const $ = cheerio.load(html);
       
-      const filmPosterElements = $('ul.poster-list li.poster-container');
+      const filmPosterElements = $('li.poster-container');
       const moviesOnPage = filmPosterElements.length;
 
       if (moviesOnPage === 0) {
@@ -134,21 +134,21 @@ export async function convertWatchlist(
       log(`Found ${moviesOnPage} movies on page ${page}. Parsing...`);
 
       filmPosterElements.each((_i, el) => {
-          const filmPosterDiv = $(el).find('div.film-poster');
-          const filmSlug = filmPosterDiv.attr('data-film-slug');
-          const filmTitle = filmPosterDiv.find('img').attr('alt');
-          const filmYearStr = filmPosterDiv.attr('data-film-release-year');
+        const filmPosterDiv = $(el).find('div.film-poster');
+        const filmSlug = filmPosterDiv.attr('data-film-slug');
+        const filmTitle = filmPosterDiv.find('img').attr('alt');
+        const filmYearStr = filmPosterDiv.attr('data-film-release-year');
 
-          if (filmSlug && filmTitle && filmYearStr) {
-              const year = parseInt(filmYearStr, 10);
-              log(`  -> Found: "${filmTitle}" (${year})`);
-              allMovies.push({
-                  title: filmTitle,
-                  year: year,
-                  letterboxdUrl: `https://letterboxd.com${filmSlug}`,
-                  tmdbId: null,
-              });
-          }
+        if (filmSlug && filmTitle && filmYearStr) {
+            const year = parseInt(filmYearStr, 10);
+            log(`  -> Found: "${filmTitle}" (${year})`);
+            allMovies.push({
+                title: filmTitle,
+                year: year,
+                letterboxdUrl: `https://letterboxd.com${filmSlug}`,
+                tmdbId: null,
+            });
+        }
       });
       
       page++;
