@@ -84,54 +84,46 @@ export async function convertWatchlist(
   
   try {
     log(`Fetching watchlist from Letterboxd...`);
-    let page = 1;
-    const MAX_PAGES = 50; 
+    const page = 1;
     
-    while (page <= MAX_PAGES) {
-      const watchlistUrl = `https://letterboxd.com/${username}/watchlist/page/${page}/`;
-      log(`Fetching page ${page}: ${watchlistUrl}`);
-      
-      let response;
-      try {
-        response = await fetch(watchlistUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-          }
-        });
-      } catch (fetchError) {
-          const error = `Failed to fetch Letterboxd page ${page}. Check your network connection.`;
-          log(`Error: ${error}`);
-          throw new Error(error);
-      }
-
-      if (response.status === 404) {
-        if (page === 1) { 
-          const error = 'User not found or watchlist is private.';
-          log(`Error: ${error}`);
-          throw new Error(error);
+    const watchlistUrl = `https://letterboxd.com/${username}/watchlist/page/${page}/`;
+    log(`Fetching page ${page}: ${watchlistUrl}`);
+    
+    let response;
+    try {
+      response = await fetch(watchlistUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         }
-        log('No more pages found. Ending scrape.');
-        break; 
-      }
-
-      if (!response.ok) {
-        const error = `Failed to fetch Letterboxd watchlist. Status: ${response.status}`;
+      });
+    } catch (fetchError) {
+        const error = `Failed to fetch Letterboxd page ${page}. Check your network connection.`;
         log(`Error: ${error}`);
         throw new Error(error);
-      }
-      
-      const html = await response.text();
-      const $ = cheerio.load(html);
-      
-      const filmPosterElements = $('li.poster-container');
-      const moviesOnPage = filmPosterElements.length;
+    }
 
-      if (moviesOnPage === 0) {
-        log('No more movies found on this page. Ending scrape.');
-        break; 
-      }
-      
-      log(`Found ${moviesOnPage} movies on page ${page}. Parsing...`);
+    if (response.status === 404) {
+      const error = 'User not found or watchlist is private.';
+      log(`Error: ${error}`);
+      throw new Error(error);
+    }
+
+    if (!response.ok) {
+      const error = `Failed to fetch Letterboxd watchlist. Status: ${response.status}`;
+      log(`Error: ${error}`);
+      throw new Error(error);
+    }
+    
+    const html = await response.text();
+    const $ = cheerio.load(html);
+    
+    const filmPosterElements = $('li.poster-container');
+    const moviesOnPage = filmPosterElements.length;
+
+    if (moviesOnPage === 0) {
+      log('No movies found on page 1. Ending scrape.');
+    } else {
+      log(`Found ${moviesOnPage} movies on page 1. Parsing...`);
 
       filmPosterElements.each((_i, el) => {
         const filmPosterDiv = $(el).find('div.film-poster');
@@ -150,9 +142,6 @@ export async function convertWatchlist(
             });
         }
       });
-      
-      page++;
-      await delay(100);
     }
 
     if (allMovies.length === 0) {
