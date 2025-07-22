@@ -181,8 +181,8 @@ export async function convertWatchlist(
                 log(`  > AI refined query to: "${refinement.refinedQuery}"`);
 
                 const refinedSearchUrl = new URL('https://api.themoviedb.org/3/search/movie');
-                refinedSearchUrl.searchParams.append('api_key', TMDB_API_KEY);
-                refinedSearchUrl.searchParams.append('query', refinement.refinedQuery);
+                refinedSearchUrl.search_params.append('api_key', TMDB_API_KEY);
+                refinedSearchUrl.search_params.append('query', refinement.refinedQuery);
 
                 const refinedTmdbResponse = await fetchWithRetry(refinedSearchUrl.toString(), {}, 3, 1000, log);
                 const refinedTmdbData = await refinedTmdbResponse!.json();
