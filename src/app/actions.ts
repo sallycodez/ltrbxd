@@ -113,30 +113,35 @@ export async function convertWatchlist(
       const html = await response.text();
       const $ = cheerio.load(html);
       
-      const filmPosterElements = $('div.film-poster');
+      const posterContainers = $('li.poster-container');
 
-      if (filmPosterElements.length === 0) {
+      if (posterContainers.length === 0) {
         log('No more movies found on this page. Ending scrape.');
         hasMorePages = false;
       } else {
-        log(`Found ${filmPosterElements.length} movies on page ${page}. Parsing...`);
+        log(`Found ${posterContainers.length} movies on page ${page}. Parsing...`);
         
-        filmPosterElements.each((_i, el) => {
-            const filmDiv = $(el);
-            const title = filmDiv.attr('data-film-name');
-            const slug = filmDiv.attr('data-film-slug');
-            const link = filmDiv.attr('data-film-link');
+        posterContainers.each((_i, el) => {
+            const container = $(el);
+            const frame = container.find('a.frame');
+            const originalTitle = frame.attr('data-original-title');
+            const link = frame.attr('href');
 
-            if (title && slug && link) {
-                const yearStr = slug.match(/-(\d{4})$/)?.[1];
-                const year = yearStr ? parseInt(yearStr, 10) : null;
-                log(`  -> Parsed: ${title} (${year || 'N/A'})`);
-                allMovies.push({
-                    title: title,
-                    year: year,
-                    letterboxdUrl: `https://letterboxd.com${link}`,
-                    tmdbId: null,
-                });
+            if (originalTitle && link) {
+                const titleMatch = originalTitle.match(/^(.*) \((\d{4})\)\s*$/);
+                if(titleMatch) {
+                    const title = titleMatch[1].trim();
+                    const year = parseInt(titleMatch[2], 10);
+                    log(`  -> Parsed: ${title} (${year})`);
+                    allMovies.push({
+                        title: title,
+                        year: year,
+                        letterboxdUrl: `https://letterboxd.com${link}`,
+                        tmdbId: null,
+                    });
+                } else {
+                    log(`  -> Failed to parse title and year from: "${originalTitle}"`);
+                }
             } else {
                 log(`  -> Failed to parse details for a movie poster.`);
             }
