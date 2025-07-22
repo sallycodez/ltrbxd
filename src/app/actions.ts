@@ -134,7 +134,7 @@ export async function convertWatchlist(
       log(`Found ${moviesOnPage} movies on page ${page}. Parsing...`);
 
       filmPosterElements.each((_i, el) => {
-        const filmPosterDiv = $(el).children('div.film-poster');
+        const filmPosterDiv = $(el).find('div.film-poster');
         const filmSlug = filmPosterDiv.attr('data-film-slug');
         const filmTitle = filmPosterDiv.find('img').attr('alt');
         const filmYearStr = filmPosterDiv.attr('data-film-release-year');
