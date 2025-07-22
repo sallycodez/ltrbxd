@@ -113,32 +113,35 @@ export async function convertWatchlist(
       const html = await response.text();
       const $ = cheerio.load(html);
       
-      const moviesOnPage = $('div.film-poster');
+      const filmPosterElements = $('div.film-poster');
 
-      if (moviesOnPage.length === 0) {
+      if (filmPosterElements.length === 0) {
         log('No more movies found on this page. Ending scrape.');
         hasMorePages = false;
       } else {
-        log(`Found ${moviesOnPage.length} movies on page ${page}. Parsing...`);
+        log(`Found ${filmPosterElements.length} movies on page ${page}. Parsing...`);
         
-        moviesOnPage.each((_i, el) => {
-          const filmLink = $(el).attr('data-film-link');
-          if (filmLink) {
-            log(`  -> Found link: ${filmLink}`);
-            const title = $(el).attr('data-film-name') || 'N/A';
-            const slug = $(el).attr('data-film-slug') || '';
-            const yearStr = slug.match(/-(\d{4})$/)?.[1];
-            const year = yearStr ? parseInt(yearStr, 10) : null;
-            allMovies.push({
-              title: title,
-              year: year,
-              letterboxdUrl: `https://letterboxd.com${filmLink}`,
-              tmdbId: null,
-            });
-          } else {
-            log(`  -> Could not find link for an element.`);
-          }
+        filmPosterElements.each((_i, el) => {
+            const filmDiv = $(el);
+            const title = filmDiv.attr('data-film-name');
+            const slug = filmDiv.attr('data-film-slug');
+            const link = filmDiv.attr('data-film-link');
+
+            if (title && slug && link) {
+                const yearStr = slug.match(/-(\d{4})$/)?.[1];
+                const year = yearStr ? parseInt(yearStr, 10) : null;
+                log(`  -> Parsed: ${title} (${year || 'N/A'})`);
+                allMovies.push({
+                    title: title,
+                    year: year,
+                    letterboxdUrl: `https://letterboxd.com${link}`,
+                    tmdbId: null,
+                });
+            } else {
+                log(`  -> Failed to parse details for a movie poster.`);
+            }
         });
+
         page++;
         await delay(250); // Be nice to Letterboxd
       }
