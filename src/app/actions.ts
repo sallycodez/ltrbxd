@@ -107,13 +107,13 @@ export async function convertWatchlist(
 
       if (!response.ok) {
          if (response.status === 404) {
-           if (page === 1) { // Only error on first page 404
+           if (page === 1) { 
              const error = 'User not found or watchlist is private.';
              log(`Error: ${error}`);
              throw new Error(error);
            }
           log('No more pages found. Ending scrape.');
-          break; // This is the end of the watchlist
+          break; 
         }
         const error = `Failed to fetch Letterboxd watchlist. Status: ${response.status}`;
         log(`Error: ${error}`);
@@ -123,17 +123,17 @@ export async function convertWatchlist(
       const html = await response.text();
       const $ = cheerio.load(html);
       
-      const filmPosters = $('li.poster-container');
-      const moviesOnPage = filmPosters.length;
+      const filmPosterElements = $('ul.poster-list li.poster-container');
+      const moviesOnPage = filmPosterElements.length;
 
       if (moviesOnPage === 0) {
         log('No more movies found on this page. Ending scrape.');
-        break; // No more movies, exit the loop
+        break; 
       }
       
       log(`Found ${moviesOnPage} movies on page ${page}. Parsing...`);
 
-      filmPosters.each((_i, el) => {
+      filmPosterElements.each((_i, el) => {
           const filmPosterDiv = $(el).find('div.film-poster');
           const filmSlug = filmPosterDiv.attr('data-film-slug');
           const filmTitle = filmPosterDiv.find('img').attr('alt');
@@ -180,7 +180,6 @@ export async function convertWatchlist(
         
         let foundMatch = false;
         if (tmdbData.results && tmdbData.results.length > 0) {
-            // A simple match based on the first result
             const bestMatch = tmdbData.results[0];
             tmdbId = bestMatch.id;
             foundMatch = true;
