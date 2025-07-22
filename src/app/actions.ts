@@ -130,7 +130,7 @@ export async function getWatchlistData(username: string, log: (message: string) 
     const html = await response.text();
     const $ = cheerio.load(html);
     
-    const filmPosterElements = $('li.poster-container');
+    const filmPosterElements = $('div.film-poster');
 
     if (filmPosterElements.length === 0) {
       log('No more movies found on this page. Ending scrape.');
@@ -139,8 +139,8 @@ export async function getWatchlistData(username: string, log: (message: string) 
       log(`Found ${filmPosterElements.length} movies on page ${page}. Parsing...`);
       
         filmPosterElements.each((_i, el) => {
-            const filmDiv = $(el).find('div.film-poster');
-            const title = filmDiv.attr('data-film-name');
+            const filmDiv = $(el);
+            const title = filmDiv.find('img').attr('alt');
             const slug = filmDiv.attr('data-film-slug');
             const link = filmDiv.attr('data-target-link');
 
@@ -177,7 +177,7 @@ export async function getWatchlistData(username: string, log: (message: string) 
   const BATCH_SIZE = 10;
   for (let i = 0; i < allMovies.length; i += BATCH_SIZE) {
       const batch = allMovies.slice(i, i + BATCH_SIZE);
-      log(`Processing batch ${i / BATCH_SIZE + 1}... (${i + 1} to ${i + batch.length})`);
+      log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}... (${i + 1} to ${i + batch.length})`);
       
       const batchPromises = batch.map(movie => fetchTmdbId(movie, log).then(tmdbId => {
           movie.tmdbId = tmdbId;
@@ -185,7 +185,7 @@ export async function getWatchlistData(username: string, log: (message: string) 
       
       await Promise.all(batchPromises);
       
-      log(`Batch ${i / BATCH_SIZE + 1} complete.`);
+      log(`Batch ${Math.floor(i / BATCH_SIZE) + 1} complete.`);
       if (i + BATCH_SIZE < allMovies.length) {
         log('Waiting before next batch...');
         await delay(1000); // Wait 1 second between batches to be safe with rate limits
