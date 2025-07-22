@@ -113,37 +113,34 @@ export async function convertWatchlist(
       const html = await response.text();
       const $ = cheerio.load(html);
       
-      const filmPosterElements = $('div.film-poster');
-      const moviesOnPage = filmPosterElements.length;
+      const moviesOnPage = $('div.film-poster');
 
-      if (moviesOnPage === 0) {
+      if (moviesOnPage.length === 0) {
         log('No more movies found on this page. Ending scrape.');
         hasMorePages = false;
       } else {
-        log(`Found ${moviesOnPage} movies on page ${page}. Parsing...`);
+        log(`Found ${moviesOnPage.length} movies on page ${page}. Parsing...`);
         
-        filmPosterElements.each((_i, el) => {
+        moviesOnPage.each((_i, el) => {
           const $el = $(el);
-          const title = $el.attr('data-film-name');
-          const slug = $el.attr('data-film-slug');
-          const link = $el.attr('data-film-link');
-
+          const title = $el.data('film-name');
+          const slug = $el.data('film-slug');
+          const link = $el.data('film-link');
+          
           if (title && slug && link) {
-              const yearStr = slug.match(/-(\d{4})$/)?.[1];
-              const year = yearStr ? parseInt(yearStr, 10) : null;
-              
-              if (year) {
-                  log(`  -> Parsed: "${title}" (${year})`);
-                  allMovies.push({
-                      title: title,
-                      year: year,
-                      letterboxdUrl: `https://letterboxd.com${link}`,
-                      tmdbId: null,
-                  });
-              }
+            const yearStr = slug.match(/-(\d{4})$/)?.[1];
+            const year = yearStr ? parseInt(yearStr, 10) : null;
+            log(`  -> Parsed: "${title}" (${year || 'N/A'})`);
+            allMovies.push({
+              title: title,
+              year: year,
+              letterboxdUrl: `https://letterboxd.com${link}`,
+              tmdbId: null,
+            });
           }
         });
         page++;
+        await delay(250); // Be nice to Letterboxd
       }
     }
 
