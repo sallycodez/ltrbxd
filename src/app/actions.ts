@@ -122,8 +122,10 @@ export async function convertWatchlist(
         log(`Found ${posterContainers.length} movies on page ${page}. Parsing...`);
         
         posterContainers.each((_i, el) => {
-            const container = $(el);
-            const frame = container.find('a.frame');
+            const containerHtml = $.html(el);
+            log(`Found container HTML: ${containerHtml}`);
+            
+            const frame = $(el).find('a.frame');
             const originalTitle = frame.attr('data-original-title');
             const link = frame.attr('href');
 
