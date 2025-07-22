@@ -86,8 +86,9 @@ export async function convertWatchlist(
     log(`Fetching watchlist from Letterboxd...`);
     let page = 1;
     const MAX_PAGES = 50; 
+    let moviesOnPage = 0;
 
-    while (page <= MAX_PAGES) {
+    do {
       const watchlistUrl = `https://letterboxd.com/${username}/watchlist/page/${page}/`;
       log(`Fetching page ${page}: ${watchlistUrl}`);
       const response = await fetch(watchlistUrl, {
@@ -104,7 +105,8 @@ export async function convertWatchlist(
              throw new Error(error);
            }
           log('No more pages found.');
-          break; // Exit loop if page not found (end of watchlist)
+          moviesOnPage = 0;
+          continue; 
         }
         const error = `Failed to fetch Letterboxd watchlist. Status: ${response.status}`;
         log(`Error: ${error}`);
@@ -114,33 +116,37 @@ export async function convertWatchlist(
       const html = await response.text();
       const $ = cheerio.load(html);
       
-      const filmPosters = $('.poster-list .film-poster');
-      if (filmPosters.length === 0) {
+      const filmPosters = $('li.poster-container');
+      moviesOnPage = filmPosters.length;
+
+      if (moviesOnPage > 0) {
+        log(`Found ${moviesOnPage} movies on page ${page}.`);
+
+        filmPosters.each((_i, el) => {
+            const filmElement = $(el).find('.film-poster');
+            const filmSlug = filmElement.attr('data-film-slug');
+            const filmTitle = filmElement.find('img').attr('alt');
+            const filmYearStr = filmElement.attr('data-film-release-year');
+
+            if (filmSlug && filmTitle && filmYearStr) {
+                const year = parseInt(filmYearStr, 10);
+                log(`  > Parsing: "${filmTitle}" (${year})`);
+                allMovies.push({
+                    title: filmTitle,
+                    year: year,
+                    letterboxdUrl: `https://letterboxd.com${filmSlug}`,
+                    tmdbId: null,
+                });
+            }
+        });
+      } else {
         log('No more movies found on this page.');
-        break; // Exit loop if no movies on page
       }
       
-      log(`Found ${filmPosters.length} movies on page ${page}.`);
-
-      filmPosters.each((i, el) => {
-        const filmElement = $(el);
-        const filmSlug = filmElement.attr('data-film-slug');
-        const filmTitle = filmElement.find('img').attr('alt');
-        const filmYearStr = filmElement.attr('data-film-release-year');
-        
-        if (filmSlug && filmTitle && filmYearStr) {
-          log(`  > Parsing: "${filmTitle}" (${filmYearStr})`);
-          allMovies.push({
-            title: filmTitle,
-            year: parseInt(filmYearStr, 10),
-            letterboxdUrl: `https://letterboxd.com${filmSlug}`,
-            tmdbId: null,
-          });
-        }
-      });
       page++;
       await delay(100);
-    }
+
+    } while (moviesOnPage > 0 && page <= MAX_PAGES);
 
     if (allMovies.length === 0) {
         const message = "Watchlist is empty or no movies could be parsed.";
@@ -159,16 +165,21 @@ export async function convertWatchlist(
         searchUrl.searchParams.append('api_key', TMDB_API_KEY);
         searchUrl.searchParams.append('query', movie.title);
         if (movie.year) {
-          searchUrl.searchParams.append('year', movie.year.toString());
+          searchUrl.searchParams.append('primary_release_year', movie.year.toString());
         }
 
         const tmdbResponse = await fetchWithRetry(searchUrl.toString(), {}, 3, 1000, log);
         const tmdbData = await tmdbResponse!.json();
-
+        
+        let foundMatch = false;
         if (tmdbData.results && tmdbData.results.length > 0) {
-          tmdbId = tmdbData.results[0].id;
-          log(`  > Found initial match: TMDB ID ${tmdbId}`);
-        } else {
+            // A better match would be to check year, but for now we take the first result.
+            tmdbId = tmdbData.results[0].id;
+            foundMatch = true;
+            log(`  > Found initial match: TMDB ID ${tmdbId}`);
+        }
+        
+        if (!foundMatch) {
             log(`  > No initial TMDB match. Trying with AI refinement.`);
             try {
                 const refinement = await improveTmdbMatching({
