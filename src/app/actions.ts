@@ -70,6 +70,33 @@ export async function getTrendingMovies(): Promise<any[]> {
     }
 }
 
+async function fetchTmdbId(movie: MovieData, log: (message: string) => void): Promise<number | null> {
+    try {
+        log(`Searching for "${movie.title} (${movie.year || 'N/A'})"...`);
+        
+        const searchUrl = new URL('https://api.themoviedb.org/3/search/movie');
+        searchUrl.searchParams.append('api_key', TMDB_API_KEY);
+        searchUrl.searchParams.append('query', movie.title);
+        if (movie.year) {
+            searchUrl.searchParams.append('primary_release_year', movie.year.toString());
+        }
+
+        const tmdbResponse = await fetchWithRetry(searchUrl.toString(), {}, 3, 1000, log);
+        const tmdbData = await tmdbResponse!.json();
+
+        if (tmdbData.results && tmdbData.results.length > 0) {
+            const bestMatch = tmdbData.results[0];
+            log(`  > Found match: TMDB ID ${bestMatch.id} for "${bestMatch.title}"`);
+            return bestMatch.id;
+        }
+
+        log(`  > No TMDB match found for "${movie.title}".`);
+        return null;
+    } catch (error) {
+        log(`  > Failed to get TMDB ID for ${movie.title}: ${error instanceof Error ? error.message : String(error)}`);
+        return null;
+    }
+}
 
 export async function getWatchlistData(username: string, log: (message: string) => void): Promise<MovieData[]> {
   log(`Fetching watchlist from Letterboxd...`);
@@ -111,28 +138,28 @@ export async function getWatchlistData(username: string, log: (message: string) 
     } else {
       log(`Found ${filmPosterElements.length} movies on page ${page}. Parsing...`);
       
-      filmPosterElements.each((_i, el) => {
-        const filmDiv = $(el).find('div.film-poster');
-        const slug = filmDiv.attr('data-film-slug');
-        const title = filmDiv.find('img').attr('alt');
-        const link = filmDiv.attr('data-target-link');
+        filmPosterElements.each((_i, el) => {
+            const filmDiv = $(el).find('div.film-poster');
+            const title = filmDiv.attr('data-film-name');
+            const slug = filmDiv.attr('data-film-slug');
+            const link = filmDiv.attr('data-target-link');
 
-        if (title && slug && link) {
-          const yearMatch = slug.match(/-(\d{4})$/);
-          const year = yearMatch ? parseInt(yearMatch[1], 10) : null;
-          
-          log(`  -> Parsed: ${title} (${year || 'N/A'})`);
+            if (title && slug && link) {
+                const yearMatch = slug.match(/-(\d{4})$/);
+                const year = yearMatch ? parseInt(yearMatch[1], 10) : null;
+                
+                log(`  -> Parsed: ${title} (${year || 'N/A'})`);
 
-          allMovies.push({
-            title: title,
-            year: year,
-            letterboxdUrl: `https://letterboxd.com${link}`,
-            tmdbId: null,
-          });
-        } else {
-           log(`  -> Failed to parse details for a movie poster.`);
-        }
-      });
+                allMovies.push({
+                    title: title,
+                    year: year,
+                    letterboxdUrl: `https://letterboxd.com${link}`,
+                    tmdbId: null,
+                });
+            } else {
+                log(`  -> Failed to parse details for a movie poster.`);
+            }
+        });
 
       page++;
       await delay(250); // Be nice to Letterboxd
@@ -145,63 +172,24 @@ export async function getWatchlistData(username: string, log: (message: string) 
       throw new Error(message);
   }
   
-  log(`Found a total of ${allMovies.length} movies. Now fetching TMDB IDs...`);
-
-  for (const [index, movie] of allMovies.entries()) {
-    try {
-      let tmdbId: number | null = null;
-      log(`[${index + 1}/${allMovies.length}] Searching for "${movie.title} (${movie.year || 'N/A'})"...`);
+  log(`Found a total of ${allMovies.length} movies. Now fetching TMDB IDs in batches...`);
+  
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < allMovies.length; i += BATCH_SIZE) {
+      const batch = allMovies.slice(i, i + BATCH_SIZE);
+      log(`Processing batch ${i / BATCH_SIZE + 1}... (${i + 1} to ${i + batch.length})`);
       
-      const searchUrl = new URL('https://api.themoviedb.org/3/search/movie');
-      searchUrl.searchParams.append('api_key', TMDB_API_KEY);
-      searchUrl.searchParams.append('query', movie.title);
-      if (movie.year) {
-        searchUrl.searchParams.append('primary_release_year', movie.year.toString());
-      }
-
-      const tmdbResponse = await fetchWithRetry(searchUrl.toString(), {}, 3, 1000, log);
-      const tmdbData = await tmdbResponse!.json();
+      const batchPromises = batch.map(movie => fetchTmdbId(movie, log).then(tmdbId => {
+          movie.tmdbId = tmdbId;
+      }));
       
-      let foundMatch = false;
-      if (tmdbData.results && tmdbData.results.length > 0) {
-          const bestMatch = tmdbData.results[0];
-          tmdbId = bestMatch.id;
-          foundMatch = true;
-          log(`  > Found initial match: TMDB ID ${tmdbId} for "${bestMatch.title}"`);
-      }
+      await Promise.all(batchPromises);
       
-      if (!foundMatch && movie.year) {
-          log(`  > No initial TMDB match. Trying with AI refinement.`);
-          try {
-              const refinement = await improveTmdbMatching({
-                  title: movie.title,
-                  year: movie.year,
-                  initialResults: tmdbData.results || [],
-              });
-              log(`  > AI refined query to: "${refinement.refinedQuery}"`);
-
-              const refinedSearchUrl = new URL('https://api.themoviedb.org/3/search/movie');
-              refinedSearchUrl.searchParams.append('api_key', TMDB_API_KEY);
-              refinedSearchUrl.searchParams.append('query', refinement.refinedQuery);
-
-              const refinedTmdbResponse = await fetchWithRetry(refinedSearchUrl.toString(), {}, 3, 1000, log);
-              const refinedTmdbData = await refinedTmdbResponse!.json();
-
-              if (refinedTmdbData.results && refinedTmdbData.results.length > 0) {
-                  tmdbId = refinedTmdbData.results[0].id;
-                  log(`  > Found match with refined query: TMDB ID ${tmdbId}`);
-              } else {
-                  log(`  > No match found even with AI refinement.`);
-              }
-          } catch (aiError) {
-              log(`  > AI refinement failed: ${aiError instanceof Error ? aiError.message : String(aiError)}`);
-          }
+      log(`Batch ${i / BATCH_SIZE + 1} complete.`);
+      if (i + BATCH_SIZE < allMovies.length) {
+        log('Waiting before next batch...');
+        await delay(1000); // Wait 1 second between batches to be safe with rate limits
       }
-      movie.tmdbId = tmdbId;
-      await delay(250); // Rate limit TMDB API calls
-    } catch (error) {
-        log(`  > Failed to get TMDB ID for ${movie.title}: ${error instanceof Error ? error.message : String(error)}`);
-    }
   }
 
   return allMovies;
@@ -241,7 +229,7 @@ export async function convertWatchlist(
     log('Conversion complete!');
     return {
       movies: allMovies,
-      message: `Successfully converted ${allMovies.length} movies.`,
+      message: `Successfully converted ${allMovies.filter(m => m.tmdbId).length} of ${allMovies.length} movies.`,
       error: null,
       logs,
     };
