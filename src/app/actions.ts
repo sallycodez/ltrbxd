@@ -122,21 +122,21 @@ export async function convertWatchlist(
         log(`Found ${moviesOnPage.length} movies on page ${page}. Parsing...`);
         
         moviesOnPage.each((_i, el) => {
-          const $el = $(el);
-          const title = $el.data('film-name');
-          const slug = $el.data('film-slug');
-          const link = $el.data('film-link');
-          
-          if (title && slug && link) {
+          const filmLink = $(el).attr('data-film-link');
+          if (filmLink) {
+            log(`  -> Found link: ${filmLink}`);
+            const title = $(el).attr('data-film-name') || 'N/A';
+            const slug = $(el).attr('data-film-slug') || '';
             const yearStr = slug.match(/-(\d{4})$/)?.[1];
             const year = yearStr ? parseInt(yearStr, 10) : null;
-            log(`  -> Parsed: "${title}" (${year || 'N/A'})`);
             allMovies.push({
               title: title,
               year: year,
-              letterboxdUrl: `https://letterboxd.com${link}`,
+              letterboxdUrl: `https://letterboxd.com${filmLink}`,
               tmdbId: null,
             });
+          } else {
+            log(`  -> Could not find link for an element.`);
           }
         });
         page++;
