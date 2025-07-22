@@ -106,7 +106,6 @@ export async function convertWatchlist(
       if (!response.ok) {
         const error = `Failed to fetch Letterboxd watchlist page ${page}. Status: ${response.status}`;
         log(`Error: ${error}`);
-        // Don't throw, just stop pagination
         hasMorePages = false; 
         continue;
       }
@@ -125,19 +124,23 @@ export async function convertWatchlist(
 
         filmPosterElements.each((_i, el) => {
           const $el = $(el);
-          const filmSlug = $el.attr('data-film-slug');
-          const filmTitle = $el.find('img').attr('alt');
-          const filmYearStr = $el.attr('data-film-release-year');
-          
-          if (filmSlug && filmTitle && filmYearStr) {
-              const year = parseInt(filmYearStr, 10);
-              log(`  -> Parsed: "${filmTitle}" (${year})`);
+          const title = $el.attr('data-film-name');
+          const slug = $el.attr('data-film-slug');
+          const link = $el.attr('data-film-link');
+
+          if (title && slug && link) {
+            const yearStr = slug.split('-').pop();
+            const year = yearStr ? parseInt(yearStr, 10) : null;
+            
+            if (!isNaN(year as number)) {
+              log(`  -> Parsed: "${title}" (${year})`);
               allMovies.push({
-                  title: filmTitle,
+                  title: title,
                   year: year,
-                  letterboxdUrl: `https://letterboxd.com${filmSlug}`,
+                  letterboxdUrl: `https://letterboxd.com${link}`,
                   tmdbId: null,
               });
+            }
           }
         });
         page++;
