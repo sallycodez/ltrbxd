@@ -131,6 +131,7 @@ export async function convertWatchlist(
         const filmYearStr = filmElement.attr('data-film-release-year');
         
         if (filmSlug && filmTitle && filmYearStr) {
+          log(`  > Parsing: "${filmTitle}" (${filmYearStr})`);
           allMovies.push({
             title: filmTitle,
             year: parseInt(filmYearStr, 10),
