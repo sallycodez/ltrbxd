@@ -81,12 +81,13 @@ export async function convertWatchlist(
   const { username } = validatedFields.data;
   log(`Starting conversion for user: ${username}`);
   const allMovies: MovieData[] = [];
-  let page = 1;
-  const MAX_PAGES = 50; 
-  let hasMorePages = true;
-
+  
   try {
     log(`Fetching watchlist from Letterboxd...`);
+    let page = 1;
+    const MAX_PAGES = 50; 
+    let hasMorePages = true;
+
     while (page <= MAX_PAGES && hasMorePages) {
       const watchlistUrl = `https://letterboxd.com/${username}/watchlist/page/${page}/`;
       log(`Fetching page ${page}: ${watchlistUrl}`);
