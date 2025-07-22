@@ -83,8 +83,8 @@ export async function convertWatchlist(
   const allMovies: MovieData[] = [];
   let page = 1;
   const MAX_PAGES = 50; 
-  let moviesFoundOnFirstPage = false;
   let hasMorePages = true;
+  let userFound = false;
 
   try {
     log(`Fetching watchlist from Letterboxd...`);
@@ -106,13 +106,14 @@ export async function convertWatchlist(
           }
           log('No more pages found.');
           hasMorePages = false;
-          continue; // End loop gracefully
+          continue; 
         }
         const error = `Failed to fetch Letterboxd watchlist. Status: ${response.status}`;
         log(`Error: ${error}`);
         throw new Error(error);
       }
 
+      userFound = true; 
       const html = await response.text();
       const $ = cheerio.load(html);
       
@@ -121,10 +122,6 @@ export async function convertWatchlist(
         log('No more movies found on this page.');
         hasMorePages = false;
         continue;
-      }
-
-      if (page === 1) {
-          moviesFoundOnFirstPage = true;
       }
       
       log(`Found ${filmPosters.length} movies on page ${page}.`);
@@ -149,7 +146,7 @@ export async function convertWatchlist(
     }
 
     if (allMovies.length === 0) {
-        const message = "Could not find any movies. Is the watchlist empty or username incorrect?";
+        const message = userFound ? "Watchlist is empty." : "Could not find any movies. Is the watchlist empty or username incorrect?";
         log(`Warning: ${message}`);
         return { movies: [], message: null, error: message, logs };
     }
