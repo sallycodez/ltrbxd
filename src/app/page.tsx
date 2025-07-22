@@ -10,29 +10,46 @@ async function MovieGrid() {
   const posterBaseUrl = 'https://image.tmdb.org/t/p/w500';
 
   // We'll create a visually interesting grid layout
-  const gridMovies = movies.slice(0, 7); // Use 7 movies for the grid
+  const gridMovies = movies.slice(0, 10); // Use 10 movies for a better grid
 
-  const gridAreas = [
-    'a', 'b', 'b',
-    'c', 'b', 'b',
-    'd', 'e', 'f',
-    'g', 'e', 'f',
-  ];
+  // A more robust grid layout that can handle missing movies
+  const gridTemplateAreas = `
+    "a a b c"
+    "a a d e"
+    "f g h i"
+  `;
+
+  if (gridMovies.length < 9) {
+    return (
+      <div className="w-full max-w-xl mx-auto p-4 bg-secondary rounded-lg">
+        <p className="text-muted-foreground text-center">Could not load trending movies.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="hidden lg:grid grid-cols-3 grid-rows-4 gap-4 w-full max-w-xl mx-auto">
+    <div
+      className="hidden lg:grid gap-4 w-full max-w-2xl mx-auto"
+      style={{
+        gridTemplateAreas: gridTemplateAreas.trim().replace(/\s+/g, ' '),
+        gridTemplateRows: 'repeat(3, 150px)',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+      }}
+    >
       {gridMovies.map((movie, index) => {
-        const style = { gridArea: gridAreas[index] || '' };
+        const gridArea = String.fromCharCode(97 + index); // a, b, c, ...
         return (
-          <div key={movie.id} className="w-full h-full rounded-lg overflow-hidden shadow-2xl" style={style}>
-            <Image
-              src={`${posterBaseUrl}${movie.poster_path}`}
-              alt={movie.title}
-              width={500}
-              height={750}
-              className="w-full h-full object-cover"
-              priority={index < 4}
-            />
+          <div key={movie.id} className="w-full h-full rounded-lg overflow-hidden shadow-2xl" style={{ gridArea }}>
+            {movie.poster_path && (
+               <Image
+                  src={`${posterBaseUrl}${movie.poster_path}`}
+                  alt={movie.title}
+                  width={500}
+                  height={750}
+                  className="w-full h-full object-cover"
+                  priority={index < 4}
+               />
+            )}
           </div>
         );
       })}
