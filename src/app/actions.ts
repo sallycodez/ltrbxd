@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { improveTmdbMatching } from '@/ai/flows/improve-tmdb-matching';
 
 const TMDB_API_KEY = 'c809c8f0886f57672175beeeed53a196';
+const TMDB_API_URL = 'https://api.themoviedb.org/3';
 
 export interface MovieData {
   title: string;
@@ -53,6 +54,23 @@ async function fetchWithRetry(url: string, options: RequestInit, retries = 3, de
   throw new Error(`Failed to fetch ${url} after ${retries} retries.`);
 }
 
+export async function getTrendingMovies(): Promise<any[]> {
+    const url = `${TMDB_API_URL}/trending/movie/week?api_key=${TMDB_API_KEY}`;
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            console.error('Failed to fetch trending movies');
+            return [];
+        }
+        const data = await response.json();
+        return data.results;
+    } catch (error) {
+        console.error('Error fetching trending movies:', error);
+        return [];
+    }
+}
+
+
 export async function getWatchlistData(username: string, log: (message: string) => void): Promise<MovieData[]> {
   log(`Fetching watchlist from Letterboxd...`);
   let page = 1;
@@ -85,7 +103,7 @@ export async function getWatchlistData(username: string, log: (message: string) 
     const html = await response.text();
     const $ = cheerio.load(html);
     
-    const filmPosterElements = $('div.film-poster');
+    const filmPosterElements = $('li.poster-container');
 
     if (filmPosterElements.length === 0) {
       log('No more movies found on this page. Ending scrape.');
@@ -94,15 +112,14 @@ export async function getWatchlistData(username: string, log: (message: string) 
       log(`Found ${filmPosterElements.length} movies on page ${page}. Parsing...`);
       
       filmPosterElements.each((_i, el) => {
-        const filmDiv = $(el);
+        const filmDiv = $(el).find('div.film-poster');
         const slug = filmDiv.attr('data-film-slug');
         const title = filmDiv.find('img').attr('alt');
         const link = filmDiv.attr('data-target-link');
 
         if (title && slug && link) {
-          const slugParts = slug.split('-');
-          const yearStr = slugParts[slugParts.length - 1];
-          const year = /^\d{4}$/.test(yearStr) ? parseInt(yearStr, 10) : null;
+          const yearMatch = slug.match(/-(\d{4})$/);
+          const year = yearMatch ? parseInt(yearMatch[1], 10) : null;
           
           log(`  -> Parsed: ${title} (${year || 'N/A'})`);
 

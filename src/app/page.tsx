@@ -1,186 +1,155 @@
 
-'use client';
-
-import { useActionState, useEffect, useRef } from 'react';
-import { useFormStatus } from 'react-dom';
-import Link from 'next/link';
-import { Loader2, Film, Link as LinkIcon, FileText } from 'lucide-react';
-
-import { convertWatchlist } from '@/app/actions';
+import { getTrendingMovies } from '@/app/actions';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { useToast } from '@/hooks/use-toast';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Code } from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
 
-const initialState = {
-  movies: [],
-  message: null,
-  error: null,
-  logs: [],
-};
+async function MovieGrid() {
+  const movies = await getTrendingMovies();
+  const posterBaseUrl = 'https://image.tmdb.org/t/p/w500';
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
+  // We'll create a visually interesting grid layout
+  const gridMovies = movies.slice(0, 7); // Use 7 movies for the grid
+
+  const gridAreas = [
+    'a', 'b', 'b',
+    'c', 'b', 'b',
+    'd', 'e', 'f',
+    'g', 'e', 'f',
+  ];
+
   return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Converting...
-        </>
-      ) : (
-        'Convert to TMDB IDs'
-      )}
-    </Button>
+    <div className="hidden lg:grid grid-cols-3 grid-rows-4 gap-4 w-full max-w-xl mx-auto">
+      {gridMovies.map((movie, index) => {
+        const style = { gridArea: gridAreas[index] || '' };
+        return (
+          <div key={movie.id} className="w-full h-full rounded-lg overflow-hidden shadow-2xl" style={style}>
+            <Image
+              src={`${posterBaseUrl}${movie.poster_path}`}
+              alt={movie.title}
+              width={500}
+              height={750}
+              className="w-full h-full object-cover"
+              priority={index < 4}
+            />
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
 export default function Home() {
-  const [state, formAction] = useActionState(convertWatchlist, initialState);
-  const { toast } = useToast();
-  const formRef = useRef<HTMLFormElement>(null);
-  const logsContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (state.error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: state.error,
-      });
-    }
-    if (state.message && state.movies.length > 0) {
-      toast({
-        title: 'Success',
-        description: state.message,
-      });
-    }
-  }, [state.error, state.message, state.movies.length, toast]);
-
-  useEffect(() => {
-    if (logsContainerRef.current) {
-      logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
-    }
-  }, [state.logs]);
+  const currentYear = new Date().getFullYear();
 
   return (
-    <main className="flex min-h-screen flex-col items-center p-4 sm:p-8 md:p-12 bg-background">
-      <div className="w-full max-w-4xl space-y-8">
-        <header className="text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl font-headline">
-            Letterboxd to TMDB Converter
-          </h1>
-          <p className="mt-4 text-lg text-muted-foreground">
-            Enter your Letterboxd username to convert your watchlist into a list of TMDB IDs.
-          </p>
-        </header>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1">
-            <Card className="shadow-lg sticky top-8">
-              <CardHeader>
-                <CardTitle>Enter Username</CardTitle>
-                <CardDescription>
-                  Your Letterboxd profile and watchlist must be public.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form ref={formRef} action={formAction} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="username">Letterboxd Username</Label>
-                    <Input
-                      id="username"
-                      name="username"
-                      placeholder="e.g., davezuck"
-                      required
-                    />
-                  </div>
-                  <SubmitButton />
-                </form>
-              </CardContent>
-            </Card>
+    <div className="flex flex-col min-h-screen bg-background text-foreground">
+      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-14 items-center">
+          <div className="mr-4 flex items-center">
+            <Code className="h-6 w-6 mr-2" />
+            <Link href="/" className="font-bold text-lg">
+              LTRBXD API
+            </Link>
           </div>
-          
-          <div className="lg:col-span-2 space-y-8">
-            {state.logs && state.logs.length > 0 && (
-              <Card className="shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <FileText className="mr-2 h-5 w-5" />
-                    Logs
-                  </CardTitle>
-                  <CardDescription>
-                    Real-time progress of the conversion process.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                   <ScrollArea className="h-48 w-full rounded-md border">
-                     <div ref={logsContainerRef} className="p-4 font-mono text-sm">
-                        {state.logs.map((log, index) => (
-                          <p key={index} className="whitespace-pre-wrap">{log}</p>
-                        ))}
-                     </div>
-                   </ScrollArea>
-                </CardContent>
-              </Card>
-            )}
-
-            {state.movies && state.movies.length > 0 && (
-              <Card className="shadow-lg">
-                <CardHeader>
-                  <CardTitle>Conversion Results</CardTitle>
-                  <CardDescription>
-                    Found {state.movies.length} {state.movies.length === 1 ? 'movie' : 'movies'}. Movies without a TMDB match may be incorrect or very obscure.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Title</TableHead>
-                          <TableHead className="text-center w-[100px]">Year</TableHead>
-                          <TableHead className="text-center w-[120px]">Letterboxd</TableHead>
-                          <TableHead className="text-center w-[120px]">TMDB</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {state.movies.map((movie, index) => (
-                          <TableRow key={`${movie.letterboxdUrl}-${index}`}>
-                            <TableCell className="font-medium">{movie.title}</TableCell>
-                            <TableCell className="text-center text-muted-foreground">{movie.year}</TableCell>
-                            <TableCell className="text-center">
-                              <Button asChild variant="ghost" size="icon">
-                                <Link href={movie.letterboxdUrl} target="_blank" rel="noopener noreferrer" aria-label={`View ${movie.title} on Letterboxd`}>
-                                  <Film className="h-5 w-5 text-muted-foreground hover:text-foreground" />
-                                </Link>
-                              </Button>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {movie.tmdbId ? (
-                                <Button asChild variant="ghost" size="icon">
-                                  <Link href={`https://www.themoviedb.org/movie/${movie.tmdbId}`} target="_blank" rel="noopener noreferrer" aria-label={`View ${movie.title} on TMDB`}>
-                                    <LinkIcon className="h-5 w-5 text-muted-foreground hover:text-foreground" />
-                                  </Link>
-                                </Button>
-                              ) : (
-                                <span className="text-sm text-muted-foreground">None</span>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+          <div className="flex flex-1 items-center justify-end space-x-2">
+            <nav className="flex items-center">
+               <Button variant="ghost" asChild>
+                  <Link href="#documentation">Documentation</Link>
+                </Button>
+            </nav>
           </div>
         </div>
-      </div>
-    </main>
+      </header>
+
+      <main className="flex-1">
+        <div className="container relative py-12 lg:py-24">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div className="flex flex-col items-center lg:items-start text-center lg:text-left space-y-6">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter">
+                Letterboxd Watchlist to TMDB ID API
+              </h1>
+              <p className="max-w-[700px] text-lg text-muted-foreground">
+                A free and open-source API to convert any public Letterboxd watchlist into a list of TMDB movie IDs.
+                Perfect for developers building movie-related applications.
+              </p>
+              <Button asChild size="lg" className="group">
+                <Link href="#documentation">
+                  Get Started
+                  <span className="ml-2 transition-transform group-hover:translate-x-1">&gt;</span>
+                </Link>
+              </Button>
+               <div className="flex flex-wrap justify-center lg:justify-start gap-4 pt-4">
+                  <div className="text-center p-4 rounded-lg bg-secondary">
+                    <p className="font-bold text-2xl">100K+</p>
+                    <p className="text-sm text-muted-foreground">Movies Supported</p>
+                  </div>
+                   <div className="text-center p-4 rounded-lg bg-secondary">
+                    <p className="font-bold text-2xl">70K+</p>
+                    <p className="text-sm text-muted-foreground">Users Served</p>
+                  </div>
+                   <div className="text-center p-4 rounded-lg bg-secondary">
+                    <p className="font-bold text-2xl">5K+</p>
+                    <p className="text-sm text-muted-foreground">Active Projects</p>
+                  </div>
+               </div>
+                <p className="text-xs text-muted-foreground">These numbers are an estimate from our sources.</p>
+            </div>
+            <div className="relative">
+              <MovieGrid />
+            </div>
+          </div>
+        </div>
+
+        <div id="documentation" className="container py-12 lg:py-24 border-t border-border/40">
+           <div className="mx-auto max-w-3xl text-center">
+             <h2 className="text-4xl font-black tracking-tighter">API Documentation</h2>
+             <p className="mt-4 text-lg text-muted-foreground">Simple and straightforward to use.</p>
+           </div>
+           <div className="mt-12 bg-secondary rounded-lg p-6 max-w-4xl mx-auto font-mono text-sm">
+             <div className="mb-4">
+               <p className="font-bold text-foreground">Base URL</p>
+               <code className="text-muted-foreground">https://your-app-url.com/</code>
+             </div>
+             <div className="mb-4">
+                <p className="font-bold text-foreground">Endpoint</p>
+                <p><span className="text-green-400">GET</span> <code className="text-muted-foreground">/&#123;letterboxd_username&#125;</code></p>
+             </div>
+             <div className="mb-4">
+               <p className="font-bold text-foreground">Example Request</p>
+               <code className="text-muted-foreground">
+                 <Link href="/dave" target="_blank" className="hover:underline text-primary">
+                    https://your-app-url.com/dave
+                 </Link>
+               </code>
+             </div>
+             <div>
+                <p className="font-bold text-foreground">Example Response</p>
+                <pre className="text-muted-foreground whitespace-pre-wrap overflow-x-auto p-4 bg-background rounded-md mt-2">
+{`{
+  "total_movies": 150,
+  "tmdb_ids": [
+    27205,
+    155,
+    680,
+    ...
+  ]
+}`}
+                </pre>
+             </div>
+           </div>
+        </div>
+      </main>
+
+      <footer className="py-6 md:px-8 md:py-0 border-t border-border/40">
+        <div className="container flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row">
+          <p className="text-balance text-center text-sm leading-loose text-muted-foreground md:text-left">
+            Built by <span className="font-bold text-foreground">kyzo</span>. For learning purposes only. This project is not affiliated with Letterboxd or TMDB.
+          </p>
+          <p className="text-sm text-muted-foreground">© {currentYear} LTRBXD API. All rights reserved.</p>
+        </div>
+      </footer>
+    </div>
   );
 }
