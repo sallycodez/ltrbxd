@@ -84,7 +84,6 @@ export async function convertWatchlist(
   let page = 1;
   const MAX_PAGES = 50; 
   let hasMorePages = true;
-  let userFound = false;
 
   try {
     log(`Fetching watchlist from Letterboxd...`);
@@ -99,11 +98,11 @@ export async function convertWatchlist(
 
       if (!response.ok) {
         if (response.status === 404) {
-          if (page === 1) {
-            const error = 'User not found or watchlist is private.';
-            log(`Error: ${error}`);
-            throw new Error(error);
-          }
+           if (page === 1) {
+             const error = 'User not found or watchlist is private.';
+             log(`Error: ${error}`);
+             throw new Error(error);
+           }
           log('No more pages found.');
           hasMorePages = false;
           continue; 
@@ -112,8 +111,7 @@ export async function convertWatchlist(
         log(`Error: ${error}`);
         throw new Error(error);
       }
-
-      userFound = true; 
+      
       const html = await response.text();
       const $ = cheerio.load(html);
       
@@ -146,7 +144,7 @@ export async function convertWatchlist(
     }
 
     if (allMovies.length === 0) {
-        const message = userFound ? "Watchlist is empty." : "Could not find any movies. Is the watchlist empty or username incorrect?";
+        const message = "Watchlist is empty or no movies could be parsed.";
         log(`Warning: ${message}`);
         return { movies: [], message: null, error: message, logs };
     }
