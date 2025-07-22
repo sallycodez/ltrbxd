@@ -83,11 +83,12 @@ export async function convertWatchlist(
   const allMovies: MovieData[] = [];
   let page = 1;
   const MAX_PAGES = 50; 
-  let moviesFoundOnAnyPage = false;
+  let moviesFoundOnFirstPage = false;
+  let hasMorePages = true;
 
   try {
     log(`Fetching watchlist from Letterboxd...`);
-    while (page <= MAX_PAGES) {
+    while (page <= MAX_PAGES && hasMorePages) {
       const watchlistUrl = `https://letterboxd.com/${username}/watchlist/page/${page}/`;
       log(`Fetching page ${page}: ${watchlistUrl}`);
       const response = await fetch(watchlistUrl, {
@@ -98,13 +99,14 @@ export async function convertWatchlist(
 
       if (!response.ok) {
         if (response.status === 404) {
-          if (page === 1 && !moviesFoundOnAnyPage) {
+          if (page === 1) {
             const error = 'User not found or watchlist is private.';
             log(`Error: ${error}`);
             throw new Error(error);
           }
           log('No more pages found.');
-          break;
+          hasMorePages = false;
+          continue; // End loop gracefully
         }
         const error = `Failed to fetch Letterboxd watchlist. Status: ${response.status}`;
         log(`Error: ${error}`);
@@ -116,16 +118,16 @@ export async function convertWatchlist(
       
       const filmPosters = $('.poster-list .film-poster');
       if (filmPosters.length === 0) {
-        if (!moviesFoundOnAnyPage && page === 1) {
-            const error = "Could not find any movies. Is the watchlist empty or username incorrect?";
-            log(`Warning: ${error}`);
-            return { movies: [], message: null, error, logs };
-        }
         log('No more movies found on this page.');
-        break;
+        hasMorePages = false;
+        continue;
       }
+
+      if (page === 1) {
+          moviesFoundOnFirstPage = true;
+      }
+      
       log(`Found ${filmPosters.length} movies on page ${page}.`);
-      moviesFoundOnAnyPage = true;
 
       filmPosters.each((i, el) => {
         const filmElement = $(el);
@@ -144,6 +146,12 @@ export async function convertWatchlist(
       });
       page++;
       await delay(100);
+    }
+
+    if (allMovies.length === 0) {
+        const message = "Could not find any movies. Is the watchlist empty or username incorrect?";
+        log(`Warning: ${message}`);
+        return { movies: [], message: null, error: message, logs };
     }
     
     log(`Found a total of ${allMovies.length} movies. Now fetching TMDB IDs...`);
