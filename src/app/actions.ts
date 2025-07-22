@@ -121,7 +121,7 @@ export async function convertWatchlist(
         hasMorePages = false;
       } else {
         log(`Found ${moviesOnPage} movies on page ${page}. Parsing...`);
-
+        
         filmPosterElements.each((_i, el) => {
           const $el = $(el);
           const title = $el.attr('data-film-name');
@@ -129,18 +129,18 @@ export async function convertWatchlist(
           const link = $el.attr('data-film-link');
 
           if (title && slug && link) {
-            const yearStr = slug.split('-').pop();
-            const year = yearStr ? parseInt(yearStr, 10) : null;
-            
-            if (!isNaN(year as number)) {
-              log(`  -> Parsed: "${title}" (${year})`);
-              allMovies.push({
-                  title: title,
-                  year: year,
-                  letterboxdUrl: `https://letterboxd.com${link}`,
-                  tmdbId: null,
-              });
-            }
+              const yearStr = slug.match(/-(\d{4})$/)?.[1];
+              const year = yearStr ? parseInt(yearStr, 10) : null;
+              
+              if (year) {
+                  log(`  -> Parsed: "${title}" (${year})`);
+                  allMovies.push({
+                      title: title,
+                      year: year,
+                      letterboxdUrl: `https://letterboxd.com${link}`,
+                      tmdbId: null,
+                  });
+              }
           }
         });
         page++;
