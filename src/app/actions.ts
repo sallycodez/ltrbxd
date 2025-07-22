@@ -122,30 +122,26 @@ export async function convertWatchlist(
         log(`Found ${posterContainers.length} movies on page ${page}. Parsing...`);
         
         posterContainers.each((_i, el) => {
-            const containerHtml = $.html(el);
-            log(`Found container HTML: ${containerHtml}`);
-            
-            const frame = $(el).find('a.frame');
-            const originalTitle = frame.attr('data-original-title');
-            const link = frame.attr('href');
+            const filmDiv = $(el).find('div.film-poster');
+            const title = filmDiv.find('img').attr('alt');
+            const slug = filmDiv.attr('data-film-slug');
+            const link = filmDiv.attr('data-target-link');
 
-            if (originalTitle && link) {
-                const titleMatch = originalTitle.match(/^(.*) \((\d{4})\)\s*$/);
-                if(titleMatch) {
-                    const title = titleMatch[1].trim();
-                    const year = parseInt(titleMatch[2], 10);
-                    log(`  -> Parsed: ${title} (${year})`);
-                    allMovies.push({
-                        title: title,
-                        year: year,
-                        letterboxdUrl: `https://letterboxd.com${link}`,
-                        tmdbId: null,
-                    });
-                } else {
-                    log(`  -> Failed to parse title and year from: "${originalTitle}"`);
-                }
+            if (title && slug && link) {
+                const slugParts = slug.split('-');
+                const yearStr = slugParts[slugParts.length - 1];
+                const year = /^\d{4}$/.test(yearStr) ? parseInt(yearStr, 10) : null;
+                
+                log(`  -> Parsed: ${title} (${year || 'N/A'})`);
+
+                allMovies.push({
+                    title: title,
+                    year: year,
+                    letterboxdUrl: `https://letterboxd.com${link}`,
+                    tmdbId: null,
+                });
             } else {
-                log(`  -> Failed to parse details for a movie poster.`);
+                 log(`  -> Failed to parse details for a movie poster.`);
             }
         });
 
@@ -165,7 +161,7 @@ export async function convertWatchlist(
     for (const [index, movie] of allMovies.entries()) {
       try {
         let tmdbId: number | null = null;
-        log(`[${index + 1}/${allMovies.length}] Searching for "${movie.title} (${movie.year})"...`);
+        log(`[${index + 1}/${allMovies.length}] Searching for "${movie.title} (${movie.year || 'N/A'})"...`);
         
         const searchUrl = new URL('https://api.themoviedb.org/3/search/movie');
         searchUrl.searchParams.append('api_key', TMDB_API_KEY);
