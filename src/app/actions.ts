@@ -99,7 +99,7 @@ export async function convertWatchlist(
 
       if (!response.ok) {
          if (response.status === 404) {
-           if (page === 1) {
+           if (page === 1 && allMovies.length === 0) {
              const error = 'User not found or watchlist is private.';
              log(`Error: ${error}`);
              throw new Error(error);
@@ -177,12 +177,12 @@ export async function convertWatchlist(
             log(`  > Found initial match: TMDB ID ${tmdbId}`);
         }
         
-        if (!foundMatch) {
+        if (!foundMatch && movie.year) {
             log(`  > No initial TMDB match. Trying with AI refinement.`);
             try {
                 const refinement = await improveTmdbMatching({
                     title: movie.title,
-                    year: movie.year || 0,
+                    year: movie.year,
                     initialResults: tmdbData.results || [],
                 });
                 log(`  > AI refined query to: "${refinement.refinedQuery}"`);
