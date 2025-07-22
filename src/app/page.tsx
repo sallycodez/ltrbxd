@@ -1,7 +1,11 @@
 
 'use client';
 
-import { useFormState, useFormStatus } from 'react-dom';
+import { useActionState, useEffect, useRef } from 'react';
+import { useFormStatus } from 'react-dom';
+import Link from 'next/link';
+import { Loader2, Film, Link as LinkIcon, FileText } from 'lucide-react';
+
 import { convertWatchlist } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,9 +13,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { useEffect, useRef } from 'react';
-import { Loader2, Film, Link as LinkIcon, FileText } from 'lucide-react';
-import Link from 'next/link';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const initialState = {
@@ -38,7 +39,7 @@ function SubmitButton() {
 }
 
 export default function Home() {
-  const [state, formAction] = useFormState(convertWatchlist, initialState);
+  const [state, formAction] = useActionState(convertWatchlist, initialState);
   const { toast } = useToast();
   const formRef = useRef<HTMLFormElement>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
