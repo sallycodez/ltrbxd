@@ -86,11 +86,11 @@ export async function convertWatchlist(
     log(`Fetching watchlist from Letterboxd...`);
     let page = 1;
     const MAX_PAGES = 50; 
-    let moviesOnPage = 0;
-
-    do {
+    
+    while (page <= MAX_PAGES) {
       const watchlistUrl = `https://letterboxd.com/${username}/watchlist/page/${page}/`;
       log(`Fetching page ${page}: ${watchlistUrl}`);
+      
       const response = await fetch(watchlistUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -98,15 +98,14 @@ export async function convertWatchlist(
       });
 
       if (!response.ok) {
-        if (response.status === 404) {
+         if (response.status === 404) {
            if (page === 1) {
              const error = 'User not found or watchlist is private.';
              log(`Error: ${error}`);
              throw new Error(error);
            }
-          log('No more pages found.');
-          moviesOnPage = 0;
-          continue; 
+          log('No more pages found. Ending scrape.');
+          break; // This is the end of the watchlist
         }
         const error = `Failed to fetch Letterboxd watchlist. Status: ${response.status}`;
         log(`Error: ${error}`);
@@ -117,36 +116,36 @@ export async function convertWatchlist(
       const $ = cheerio.load(html);
       
       const filmPosters = $('li.poster-container');
-      moviesOnPage = filmPosters.length;
+      const moviesOnPage = filmPosters.length;
 
-      if (moviesOnPage > 0) {
-        log(`Found ${moviesOnPage} movies on page ${page}.`);
-
-        filmPosters.each((_i, el) => {
-            const filmElement = $(el).find('.film-poster');
-            const filmSlug = filmElement.attr('data-film-slug');
-            const filmTitle = filmElement.find('img').attr('alt');
-            const filmYearStr = filmElement.attr('data-film-release-year');
-
-            if (filmSlug && filmTitle && filmYearStr) {
-                const year = parseInt(filmYearStr, 10);
-                log(`  > Parsing: "${filmTitle}" (${year})`);
-                allMovies.push({
-                    title: filmTitle,
-                    year: year,
-                    letterboxdUrl: `https://letterboxd.com${filmSlug}`,
-                    tmdbId: null,
-                });
-            }
-        });
-      } else {
-        log('No more movies found on this page.');
+      if (moviesOnPage === 0) {
+        log('No more movies found on this page. Ending scrape.');
+        break; // No more movies, exit the loop
       }
+      
+      log(`Found ${moviesOnPage} movies on page ${page}. Parsing...`);
+
+      filmPosters.each((_i, el) => {
+          const filmElement = $(el).find('.film-poster');
+          const filmSlug = filmElement.attr('data-film-slug');
+          const filmTitle = filmElement.find('img').attr('alt');
+          const filmYearStr = filmElement.attr('data-film-release-year');
+
+          if (filmSlug && filmTitle && filmYearStr) {
+              const year = parseInt(filmYearStr, 10);
+              log(`  -> Found: "${filmTitle}" (${year})`);
+              allMovies.push({
+                  title: filmTitle,
+                  year: year,
+                  letterboxdUrl: `https://letterboxd.com${filmSlug}`,
+                  tmdbId: null,
+              });
+          }
+      });
       
       page++;
       await delay(100);
-
-    } while (moviesOnPage > 0 && page <= MAX_PAGES);
+    }
 
     if (allMovies.length === 0) {
         const message = "Watchlist is empty or no movies could be parsed.";
@@ -173,7 +172,6 @@ export async function convertWatchlist(
         
         let foundMatch = false;
         if (tmdbData.results && tmdbData.results.length > 0) {
-            // A better match would be to check year, but for now we take the first result.
             tmdbId = tmdbData.results[0].id;
             foundMatch = true;
             log(`  > Found initial match: TMDB ID ${tmdbId}`);
