@@ -84,58 +84,64 @@ export async function convertWatchlist(
   
   try {
     log(`Fetching watchlist from Letterboxd...`);
-    const page = 1; // Fetch only page 1
-    
-    const watchlistUrl = `https://letterboxd.com/${username}/watchlist/page/${page}/`;
-    log(`Fetching page ${page}: ${watchlistUrl}`);
-    
-    const response = await fetch(watchlistUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      }
-    });
+    let page = 1;
+    let hasMorePages = true;
 
-    if (response.status === 404) {
-      const error = 'User not found or watchlist is private.';
-      log(`Error: ${error}`);
-      throw new Error(error);
-    }
-
-    if (!response.ok) {
-      const error = `Failed to fetch Letterboxd watchlist. Status: ${response.status}`;
-      log(`Error: ${error}`);
-      throw new Error(error);
-    }
-    
-    const html = await response.text();
-    const $ = cheerio.load(html);
-    
-    const filmPosterElements = $('li.poster-container');
-    const moviesOnPage = filmPosterElements.length;
-
-    if (moviesOnPage === 0) {
-      log('No movies found on page 1. Ending scrape.');
-    } else {
-      log(`Found ${moviesOnPage} movies on page 1. Parsing...`);
-
-      filmPosterElements.each((_i, el) => {
-        const $el = $(el); // Wrap the raw element with Cheerio
-        const filmPosterDiv = $el.find('div.film-poster');
-        const filmSlug = filmPosterDiv.attr('data-film-slug');
-        const filmTitle = filmPosterDiv.find('img').attr('alt');
-        const filmYearStr = filmPosterDiv.attr('data-film-release-year');
-        
-        if (filmSlug && filmTitle && filmYearStr) {
-            const year = parseInt(filmYearStr, 10);
-            log(`  -> Parsed: "${filmTitle}" (${year})`);
-            allMovies.push({
-                title: filmTitle,
-                year: year,
-                letterboxdUrl: `https://letterboxd.com${filmSlug}`,
-                tmdbId: null,
-            });
+    while (hasMorePages) {
+      const watchlistUrl = `https://letterboxd.com/${username}/watchlist/page/${page}/`;
+      log(`Fetching page ${page}: ${watchlistUrl}`);
+      
+      const response = await fetch(watchlistUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         }
       });
+
+      if (page === 1 && response.status === 404) {
+        const error = 'User not found or watchlist is private.';
+        log(`Error: ${error}`);
+        throw new Error(error);
+      }
+
+      if (!response.ok) {
+        const error = `Failed to fetch Letterboxd watchlist page ${page}. Status: ${response.status}`;
+        log(`Error: ${error}`);
+        // Don't throw, just stop pagination
+        hasMorePages = false; 
+        continue;
+      }
+      
+      const html = await response.text();
+      const $ = cheerio.load(html);
+      
+      const filmPosterElements = $('div.film-poster');
+      const moviesOnPage = filmPosterElements.length;
+
+      if (moviesOnPage === 0) {
+        log('No more movies found on this page. Ending scrape.');
+        hasMorePages = false;
+      } else {
+        log(`Found ${moviesOnPage} movies on page ${page}. Parsing...`);
+
+        filmPosterElements.each((_i, el) => {
+          const $el = $(el);
+          const filmSlug = $el.attr('data-film-slug');
+          const filmTitle = $el.find('img').attr('alt');
+          const filmYearStr = $el.attr('data-film-release-year');
+          
+          if (filmSlug && filmTitle && filmYearStr) {
+              const year = parseInt(filmYearStr, 10);
+              log(`  -> Parsed: "${filmTitle}" (${year})`);
+              allMovies.push({
+                  title: filmTitle,
+                  year: year,
+                  letterboxdUrl: `https://letterboxd.com${filmSlug}`,
+                  tmdbId: null,
+              });
+          }
+        });
+        page++;
+      }
     }
 
     if (allMovies.length === 0) {
