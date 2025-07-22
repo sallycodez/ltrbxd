@@ -84,23 +84,16 @@ export async function convertWatchlist(
   
   try {
     log(`Fetching watchlist from Letterboxd...`);
-    const page = 1;
+    const page = 1; // Fetch only page 1
     
     const watchlistUrl = `https://letterboxd.com/${username}/watchlist/page/${page}/`;
     log(`Fetching page ${page}: ${watchlistUrl}`);
     
-    let response;
-    try {
-      response = await fetch(watchlistUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        }
-      });
-    } catch (fetchError) {
-        const error = `Failed to fetch Letterboxd page ${page}. Check your network connection.`;
-        log(`Error: ${error}`);
-        throw new Error(error);
-    }
+    const response = await fetch(watchlistUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      }
+    });
 
     if (response.status === 404) {
       const error = 'User not found or watchlist is private.';
