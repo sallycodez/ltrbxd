@@ -91,15 +91,23 @@ export async function convertWatchlist(
       const watchlistUrl = `https://letterboxd.com/${username}/watchlist/page/${page}/`;
       log(`Fetching page ${page}: ${watchlistUrl}`);
       
-      const response = await fetch(watchlistUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        }
-      });
+      let response;
+      try {
+        response = await fetch(watchlistUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          }
+        });
+      } catch (fetchError) {
+          const error = `Failed to fetch Letterboxd page ${page}. Check your network connection.`;
+          log(`Error: ${error}`);
+          throw new Error(error);
+      }
+
 
       if (!response.ok) {
          if (response.status === 404) {
-           if (page === 1 && allMovies.length === 0) {
+           if (page === 1) { // Only error on first page 404
              const error = 'User not found or watchlist is private.';
              log(`Error: ${error}`);
              throw new Error(error);
@@ -126,10 +134,10 @@ export async function convertWatchlist(
       log(`Found ${moviesOnPage} movies on page ${page}. Parsing...`);
 
       filmPosters.each((_i, el) => {
-          const filmElement = $(el).find('.film-poster');
-          const filmSlug = filmElement.attr('data-film-slug');
-          const filmTitle = filmElement.find('img').attr('alt');
-          const filmYearStr = filmElement.attr('data-film-release-year');
+          const filmPosterDiv = $(el).find('div.film-poster');
+          const filmSlug = filmPosterDiv.attr('data-film-slug');
+          const filmTitle = filmPosterDiv.find('img').attr('alt');
+          const filmYearStr = filmPosterDiv.attr('data-film-release-year');
 
           if (filmSlug && filmTitle && filmYearStr) {
               const year = parseInt(filmYearStr, 10);
@@ -172,9 +180,11 @@ export async function convertWatchlist(
         
         let foundMatch = false;
         if (tmdbData.results && tmdbData.results.length > 0) {
-            tmdbId = tmdbData.results[0].id;
+            // A simple match based on the first result
+            const bestMatch = tmdbData.results[0];
+            tmdbId = bestMatch.id;
             foundMatch = true;
-            log(`  > Found initial match: TMDB ID ${tmdbId}`);
+            log(`  > Found initial match: TMDB ID ${tmdbId} for "${bestMatch.title}"`);
         }
         
         if (!foundMatch && movie.year) {
@@ -205,7 +215,7 @@ export async function convertWatchlist(
             }
         }
         movie.tmdbId = tmdbId;
-        await delay(250);
+        await delay(250); // Rate limit TMDB API calls
       } catch (error) {
           log(`  > Failed to get TMDB ID for ${movie.title}: ${error instanceof Error ? error.message : String(error)}`);
       }
