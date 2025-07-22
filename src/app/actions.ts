@@ -98,7 +98,7 @@ export async function convertWatchlist(
 
       if (!response.ok) {
         if (response.status === 404) {
-          if (page === 1) {
+          if (page === 1 && !moviesFoundOnAnyPage) {
             const error = 'User not found or watchlist is private.';
             log(`Error: ${error}`);
             throw new Error(error);
@@ -113,8 +113,8 @@ export async function convertWatchlist(
 
       const html = await response.text();
       const $ = cheerio.load(html);
-
-      const filmPosters = $('li.poster-container');
+      
+      const filmPosters = $('.poster-list .film-poster');
       if (filmPosters.length === 0) {
         if (!moviesFoundOnAnyPage && page === 1) {
             const error = "Could not find any movies. Is the watchlist empty or username incorrect?";
@@ -128,7 +128,7 @@ export async function convertWatchlist(
       moviesFoundOnAnyPage = true;
 
       filmPosters.each((i, el) => {
-        const filmElement = $(el).find('.film-poster');
+        const filmElement = $(el);
         const filmSlug = filmElement.attr('data-film-slug');
         const filmTitle = filmElement.find('img').attr('alt');
         const filmYearStr = filmElement.attr('data-film-release-year');
