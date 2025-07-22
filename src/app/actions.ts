@@ -86,9 +86,8 @@ export async function convertWatchlist(
     log(`Fetching watchlist from Letterboxd...`);
     let page = 1;
     const MAX_PAGES = 50; 
-    let hasMorePages = true;
 
-    while (page <= MAX_PAGES && hasMorePages) {
+    while (page <= MAX_PAGES) {
       const watchlistUrl = `https://letterboxd.com/${username}/watchlist/page/${page}/`;
       log(`Fetching page ${page}: ${watchlistUrl}`);
       const response = await fetch(watchlistUrl, {
@@ -105,8 +104,7 @@ export async function convertWatchlist(
              throw new Error(error);
            }
           log('No more pages found.');
-          hasMorePages = false;
-          continue; 
+          break; // Exit loop if page not found (end of watchlist)
         }
         const error = `Failed to fetch Letterboxd watchlist. Status: ${response.status}`;
         log(`Error: ${error}`);
@@ -119,8 +117,7 @@ export async function convertWatchlist(
       const filmPosters = $('.poster-list .film-poster');
       if (filmPosters.length === 0) {
         log('No more movies found on this page.');
-        hasMorePages = false;
-        continue;
+        break; // Exit loop if no movies on page
       }
       
       log(`Found ${filmPosters.length} movies on page ${page}.`);
