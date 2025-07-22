@@ -119,14 +119,15 @@ export async function convertWatchlist(
       log(`Found ${moviesOnPage} movies on page 1. Parsing...`);
 
       filmPosterElements.each((_i, el) => {
-        const filmPosterDiv = $(el).find('div.film-poster');
+        const $el = $(el); // Wrap the raw element with Cheerio
+        const filmPosterDiv = $el.find('div.film-poster');
         const filmSlug = filmPosterDiv.attr('data-film-slug');
         const filmTitle = filmPosterDiv.find('img').attr('alt');
         const filmYearStr = filmPosterDiv.attr('data-film-release-year');
         
         if (filmSlug && filmTitle && filmYearStr) {
             const year = parseInt(filmYearStr, 10);
-            log(`  -> Found: "${filmTitle}" (${year})`);
+            log(`  -> Parsed: "${filmTitle}" (${year})`);
             allMovies.push({
                 title: filmTitle,
                 year: year,
